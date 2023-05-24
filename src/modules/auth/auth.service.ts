@@ -10,27 +10,31 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { LoginDto } from './dto/login.dto';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable({})
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private jwt: JwtService,
+    private config: ConfigService,
   ) {}
 
   async signup(dto: SignupDto) {
     try {
-      const password = await argon.hash(dto.password);
-      const user = this.usersRepository.create({
+      const password: string = await argon.hash(dto.password);
+      const user: User = this.usersRepository.create({
         ...dto,
         password,
       });
 
       await this.usersRepository.save(user);
-
+      const token = await this.signToken(user);
       return {
         success: true,
-        user: _.pick(user, ['id', 'email']),
+        token,
       };
     } catch (err) {
       if (err.code === '23505') {
@@ -42,23 +46,39 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersRepository.findOne({
+    const user: User = await this.usersRepository.findOne({
       where: {
         email: dto.email,
       },
     });
 
     if (user) {
-      const passwordMatched = await argon.verify(user.password, dto.password);
+      const passwordMatched: boolean = await argon.verify(
+        user.password,
+        dto.password,
+      );
 
       if (passwordMatched) {
+        const token = await this.signToken(user);
         return {
           success: true,
-          user: _.pick(user, ['id', 'email']),
+          token,
         };
       }
     }
 
     throw new ForbiddenException('Email or password is incorrect!');
+  }
+
+  signToken(user: User): Promise<string> {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+    };
+
+    return this.jwt.signAsync(payload, {
+      expiresIn: '30m',
+      secret: this.config.get('JWT_SECRET'),
+    });
   }
 }
