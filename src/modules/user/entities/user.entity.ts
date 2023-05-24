@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   CreateDateColumn,
+  Unique,
 } from 'typeorm';
 
 @Entity({ name: 'users' })
@@ -15,6 +16,7 @@ export class User {
   name: string;
 
   @Column()
+  @Unique(['email'])
   email: string;
 
   @Column()

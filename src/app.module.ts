@@ -15,6 +15,7 @@ import { typeormConfig } from './config/typeorm.config';
         await typeormConfig(configService),
       inject: [ConfigService],
     }),
+    // App Modules
     AuthModule,
     UserModule,
     BookmarkModule,
