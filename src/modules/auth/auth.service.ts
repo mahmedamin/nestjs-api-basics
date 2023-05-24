@@ -8,6 +8,8 @@ import * as argon from 'argon2';
 import { User } from '../user/entities';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as _ from 'lodash';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable({})
 export class AuthService {
@@ -28,10 +30,7 @@ export class AuthService {
 
       return {
         success: true,
-        user: {
-          id: user.id,
-          createdAt: user.createdAt,
-        },
+        user: _.pick(user, ['id', 'email']),
       };
     } catch (err) {
       if (err.code === '23505') {
@@ -42,9 +41,24 @@ export class AuthService {
     }
   }
 
-  login() {
-    return {
-      msg: '-!login!-',
-    };
+  async login(dto: LoginDto) {
+    const user = await this.usersRepository.findOne({
+      where: {
+        email: dto.email,
+      },
+    });
+
+    if (user) {
+      const passwordMatched = await argon.verify(user.password, dto.password);
+
+      if (passwordMatched) {
+        return {
+          success: true,
+          user: _.pick(user, ['id', 'email']),
+        };
+      }
+    }
+
+    throw new ForbiddenException('Email or password is incorrect!');
   }
 }
